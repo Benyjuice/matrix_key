@@ -21,9 +21,9 @@
 #define KEY_STATUS_longKeyPress			3
 #define KEY_STATUS_Release			4
 
-#define KEY_FILTER_TIME	650		// 按键抖动 时间			(大于这个时间认为消抖完成，在这个时间内认为是按键抖动状态)
+#define KEY_FILTER_TIME	100		// 按键抖动 时间			(大于这个时间认为消抖完成，在这个时间内认为是按键抖动状态)
 #define LONG_PRESS_TIME	900		// 确定 按键长按 的时间		(大于这个时间，认为 发生按键长按事件)
-#define QUICK_ACT_SPACE	100		// 按键 连发 时间间隔
+#define QUICK_ACT_SPACE	1000		// 按键 连发 时间间隔
 //--------------------------------------------------------------------------------
 
 

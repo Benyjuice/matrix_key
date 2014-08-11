@@ -4,8 +4,8 @@
   日期	  :  2014-8-8
   制作人  :  Beny
 ----------------------------------------------------------------------------------------------------------*/
-#include <io430.h>
-#include "delay.h"
+#include <msp430.h>
+//#include "delay.h"
 #include "MatrixKey.h"
 
 
@@ -16,9 +16,12 @@
 
 //  矩阵键盘的端口映射-----------------------------------------------------------------
 
-#define KEY_PORT				P1OUT				//
-#define	KEY_PORT_SCAN_MODE_1	P1DIR = (~MODE_1_MASK)	// 低位（行）设为输出（扫描），高位（列）设为输入（检测）
-#define	KEY_PORT_SCAN_MODE_2	P1DIR = (~MODE_2_MASK)	// 低位（行）设为输入（检测），高位（列）设为输出（扫描）
+#define KEY_PORT_OUT				P3OUT				//
+#define KEY_PORT_IN					P3IN
+#define KEY_PORT_REN				P3REN
+
+#define	KEY_PORT_SCAN_MODE_1	P3DIR = (MODE_1_MASK)	// 低位（行）设为输出（扫描），高位（列）设为输入（检测）
+#define	KEY_PORT_SCAN_MODE_2	P3DIR = (MODE_2_MASK)	// 低位（行）设为输入（检测），高位（列）设为输出（扫描）
 //#define	KEY_PORT_SCAN_MODE_3	TRISB = MODE_3_MASK	// 低位（行）设为输入（检测），高位（列）设为输出（扫描）
 //-------------------------------------------------------------------------------------
 
@@ -59,14 +62,18 @@ unsigned char KeyScan ( void )
 			returnKeyValue = NO_KEY_PRESS;
 			break;
 		/* -----消抖状态----- */	
-		case KEY_STATUS_filter:		
-			if( ++keyPressTimer > KEY_FILTER_TIME ) {	// 判断消抖是否完成 完成则进入 按键单击状态 否则保持当前状态
-				returnKeyValue = keyValueBackup; 
-				curStatus = KEY_STATUS_clicking; 				
+		case KEY_STATUS_filter:
+			if (curKeyValue == NO_KEY_PRESS) {
+				curStatus = KEY_STATUS_Release;
+			}else {
+				if( ++keyPressTimer > KEY_FILTER_TIME ) {	// 判断消抖是否完成 完成则进入 按键单击状态 否则保持当前状态
+					returnKeyValue = curKeyValue;
+					curStatus = KEY_STATUS_clicking;
+				}
+				else
+					returnKeyValue = NO_KEY_PRESS; //返回 键值
 			}
-			else
-				returnKeyValue = NO_KEY_PRESS; //返回 键值
-			break;
+				break;
 		/* -----单击状态----- */	
 		case KEY_STATUS_clicking: 
 			if( curKeyValue == NO_KEY_PRESS )	// 判断按键是否 抬起 是则 进入 按键释放状态，否则 判断是否 长按 是则进入长按状态
@@ -83,7 +90,7 @@ unsigned char KeyScan ( void )
 			}
 			else if( ++keyQuickTimer > QUICK_ACT_SPACE ) {
 				keyQuickTimer = 0;
-				returnKeyValue = keyValueBackup;
+				returnKeyValue = curKeyValue;
 			}
 			break;
 		/* -----按键释放状态----- */	
@@ -110,19 +117,55 @@ unsigned char KeyScan ( void )
 --------------------------------------------------------------------------------------*/
 unsigned char GetKeyValue ( void )
 {
-	unsigned char hangTemp,lieTemp,key_value;
+	volatile unsigned char hangTemp,lieTemp,key_value;
 	
 	/* ----- 确定 第几列----- */	
-	KEY_PORT_SCAN_MODE_1;	//TRISB = 0xf0; 
-	KEY_PORT = MODE_1_MASK; 
-	lieTemp = KEY_PORT & MODE_1_MASK;
+	KEY_PORT_REN = 0xff;
+	P3DS = 0xff;
+	P3DIR = 0xF0;
+	P3OUT = 0xf0;
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	lieTemp = (~P3IN) & 0x0F;
+
+	//KEY_PORT_SCAN_MODE_1;	//TRISB = 0xf0;
+	//KEY_PORT_OUT = ~MODE_1_MASK;
+	//_NOP();
+	//_NOP();
+	//lieTemp = (KEY_PORT_IN & (~MODE_1_MASK));
 		
-	/* -----确定 第几行----- */	
-	KEY_PORT_SCAN_MODE_2;	//TRISB = 0x0f;
-	KEY_PORT = MODE_2_MASK;
-	hangTemp = KEY_PORT & MODE_2_MASK;
+	/* -----确定 第几行----- */
+
+	P3REN = 0xff;
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	P3DIR = 0x0f;
+	P3OUT = 0xf0;
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	_NOP();
+	hangTemp = P3IN & 0xf0;
+
+	//KEY_PORT_REN = 0xff;
+	//KEY_PORT_SCAN_MODE_2;	//TRISB = 0x0f;
+	//KEY_PORT_OUT = ~MODE_2_MASK;
+	//_NOP();
+	//_NOP();
+	//hangTemp = KEY_PORT_IN & (~MODE_2_MASK);
 	/* -----把行列组合起来 确定键值----- */
-	key_value = lieTemp | hangTemp;
+	key_value = (lieTemp | hangTemp);
 	switch( key_value ) {
 		case 0xee : key_value = 0; break;
     		case 0xde : key_value = 1; break;
